@@ -19,7 +19,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-resample = ["librosa"]
+# numpy<2.3: librosa pulls in numba, which in current releases requires
+# numpy<2.3. Without the cap, a resolver can select a numpy too new for numba.
+resample = ["librosa", "numpy<2.3"]
 
 [project.scripts]
 demucs-mlx = "separate:main"

@@ -89,7 +89,15 @@ def main():
     # Resample if needed
     if sr != model.samplerate:
         print(f"Resampling {sr}Hz → {model.samplerate}Hz...")
-        import librosa
+        try:
+            import librosa
+        except ImportError:
+            raise SystemExit(
+                f"Input is {sr}Hz but {args.name} expects "
+                f"{model.samplerate}Hz. Install librosa to enable automatic "
+                "resampling:\n\n    pip install librosa\n\n"
+                "(or reinstall demucs-mlx with the 'resample' extra), or "
+                "supply audio already at the model's sample rate.")
         wav_np = wav[0]  # [C, T]
         resampled = []
         for ch in range(wav_np.shape[0]):
