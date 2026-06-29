@@ -8,6 +8,7 @@
 
 import inspect
 import logging
+import pickle
 import typing as tp
 import warnings
 from pathlib import Path
@@ -20,6 +21,26 @@ logger = logging.getLogger(__name__)
 SOURCES = ["drums", "bass", "other", "vocals"]
 ROOT_URL = "https://dl.fbaipublicfiles.com/demucs/"
 REMOTE_ROOT = Path(__file__).parent.parent / 'remote'
+
+
+# Meta's checkpoints are pickled with weights_only=False and reference classes
+# from the original `demucs` package (e.g. demucs.htdemucs.HTDemucs). We don't
+# depend on that package — we rebuild the model in MLX and only read the saved
+# args/kwargs/state. Stub out any `demucs.*` class so unpickling succeeds
+# without the original package installed.
+class _StubUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module == 'demucs' or module.startswith('demucs.'):
+            return type(name, (), {})
+        return super().find_class(module, name)
+
+
+class _StubPickleModule:
+    """A pickle-module shim for torch.load that tolerates missing demucs."""
+    Unpickler = _StubUnpickler
+    Pickler = pickle.Pickler
+    load = staticmethod(pickle.load)
+    dump = staticmethod(pickle.dump)
 
 
 def _parse_remote_files(remote_file_list: Path) -> tp.Dict[str, str]:
@@ -145,7 +166,8 @@ def load_model(name: str = 'htdemucs',
     logger.info(f"Loading PyTorch model from {model_path}...")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        package = torch.load(model_path, map_location='cpu', weights_only=False)
+        package = torch.load(model_path, map_location='cpu', weights_only=False,
+                             pickle_module=_StubPickleModule)
 
     klass = package['klass']
     args = package['args']
